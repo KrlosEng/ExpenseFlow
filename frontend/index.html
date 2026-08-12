@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraFinance - Inteligencia Financiera & Control de Ahorros</title>
+
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Estilos CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-bolt-lightning"></i>
+                </div>
+                <div class="logo-text">
+                    <h2>Aura<span>Finance</span></h2>
+                    <span class="badge-fintech">FINTECH SUITE v2</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard" id="nav-dashboard">
+                    <i class="fa-solid fa-square-poll-vertical"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="savings" id="nav-savings">
+                    <i class="fa-solid fa-piggy-bank"></i>
+                    <span>Metas de Ahorro</span>
+                </button>
+                <button class="nav-item" data-tab="transactions" id="nav-transactions">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Transacciones</span>
+                </button>
+                <button class="nav-item" data-tab="subscriptions" id="nav-subscriptions">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Suscripciones</span>
+                </button>
+                <button class="nav-item" data-tab="budgets" id="nav-budgets">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Presupuestos</span>
+                </button>
+                <button class="nav-item" data-tab="calculator" id="nav-calculator">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>Calculadora Cuotas</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="server-status">
+                    <span class="status-dot online"></span>
+                    <div class="status-info">
+                        <span class="status-title">Backend API</span>
+                        <span class="status-subtitle" id="api-status-text">Conectando...</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Top Bar -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1 id="page-title">Dashboard Financiero</h1>
+                    <p id="page-subtitle">Plataforma Inteligente de Gestión Financiera & Ahorro</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="btn-open-import-modal">
+                        <i class="fa-solid fa-file-import"></i> Importar JSON
+                    </button>
+                    <button class="btn btn-secondary" id="btn-export-csv">
+                        <i class="fa-solid fa-file-export"></i> Exportar CSV
+                    </button>
+                    <button class="btn btn-primary" id="btn-open-tx-modal">
+                        <i class="fa-solid fa-plus"></i> Nueva Transacción
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content active">
+                <!-- KPI Summary Grid -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glow-blue">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Balance Neto</span>
+                            <div class="kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-net-balance">$0.00</div>
+                        <div class="kpi-footer text-positive">
+                            <i class="fa-solid fa-shield-halved"></i> Salud financiera activa
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glow-green">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Total Ingresos</span>
+                            <div class="kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-income">$0.00</div>
+                        <div class="kpi-footer text-positive">
+                            <i class="fa-solid fa-circle-check"></i> Entradas acumuladas
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glow-red">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Total Gastos</span>
+                            <div class="kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-expense">$0.00</div>
+                        <div class="kpi-footer text-negative">
+                            <i class="fa-solid fa-receipt"></i> Gastos del periodo
+                        </div>
+                    </div>
+
+                    <div class="kpi-card glow-purple">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Total Ahorrado</span>
+                            <div class="kpi-icon purple"><i class="fa-solid fa-vault"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-total-saved">$0.00</div>
+                        <div class="kpi-footer text-positive">
+                            <i class="fa-solid fa-piggy-bank"></i> En alcancías virtuales
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Health Score & Charts Grid -->
+                <div class="dashboard-row-grid">
+                    <!-- Health Score Widget Card -->
+                    <div class="health-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-heart-pulse"></i> Diagnostic Score</h3>
+                        </div>
+                        <div class="health-score-body">
+                            <div class="score-circle-box">
+                                <svg class="score-circle-svg" viewBox="0 0 36 36">
+                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle-fill" id="score-stroke-fill" stroke-dasharray="75, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                </svg>
+                                <div class="score-number-text" id="health-score-val">0</div>
+                            </div>
+                            <div class="health-tips-container">
+                                <h4>Diagnóstico Inteligente:</h4>
+                                <ul id="health-tips-list">
+                                    <li>Cargando evaluación de IA...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Doughnut Category Chart -->
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-pie"></i> Gastos por Categoría</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trend Chart Section -->
+                <div class="chart-card style-full-width" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-line"></i> Tendencia Diaria de Gastos</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Upcoming Subscriptions Widget -->
+                <div class="widget-card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bell"></i> Próximos Cobros de Suscripciones</h3>
+                        <button class="btn-text" id="btn-switch-subs-tab">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="upcoming-subs-list" id="upcoming-subs-list">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: SAVINGS GOALS -->
+            <section id="tab-savings" class="tab-content">
+                <div class="section-actions-header">
+                    <div>
+                        <h2>Metas de Ahorro (Alcancías Virtuales)</h2>
+                        <p class="text-muted">Asegura tus objetivos financieros acumulando fondos para proyectos específicos</p>
+                    </div>
+                    <button class="btn btn-primary" id="btn-open-goal-modal">
+                        <i class="fa-solid fa-plus"></i> Nueva Meta de Ahorro
+                    </button>
+                </div>
+
+                <div class="goals-grid" id="goals-grid-container">
+                    <!-- Dynamic Savings Goal Cards -->
+                </div>
+            </section>
+
+            <!-- TAB 3: TRANSACTIONS -->
+            <section id="tab-transactions" class="tab-content">
+                <div class="table-controls">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="tx-search-input" placeholder="Buscar por título o nota...">
+                    </div>
+                    <div class="filters-group">
+                        <input type="date" id="tx-filter-start" class="select-input" title="Fecha inicio">
+                        <input type="date" id="tx-filter-end" class="select-input" title="Fecha fin">
+                        <select id="tx-filter-type" class="select-input">
+                            <option value="">Todos los Tipos</option>
+                            <option value="expense">Solo Gastos</option>
+                            <option value="income">Solo Ingresos</option>
+                        </select>
+                        <select id="tx-filter-category" class="select-input">
+                            <option value="">Todas las Categorías</option>
+                            <option value="Alimentación & Supermercado">Alimentación & Supermercado</option>
+                            <option value="Servicios, Luz & Agua">Servicios, Luz & Agua</option>
+                            <option value="Servidores, Cloud & Software">Servidores, Cloud & Software</option>
+                            <option value="Entretenimiento & Streaming">Entretenimiento & Streaming</option>
+                            <option value="Transporte & Gasolina">Transporte & Gasolina</option>
+                            <option value="Salud & Bienestar">Salud & Bienestar</option>
+                            <option value="Vivienda & Alquiler">Vivienda & Alquiler</option>
+                            <option value="Educación & Cursos">Educación & Cursos</option>
+                            <option value="Compras & Estilo de Vida">Compras & Estilo de Vida</option>
+                            <option value="Ahorro e Inversión">Ahorro e Inversión</option>
+                            <option value="Viajes & Turismo">Viajes & Turismo</option>
+                            <option value="Mascotas">Mascotas</option>
+                            <option value="Hobbies & Tecnología">Hobbies & Tecnología</option>
+                            <option value="Impuestos & Trámites">Impuestos & Trámites</option>
+                            <option value="Regalos & Donaciones">Regalos & Donaciones</option>
+                            <option value="Ingresos & Salario">Ingresos & Salario</option>
+                            <option value="Freelance & Negocios">Freelance & Negocios</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Transacción</th>
+                                <th>Tipo</th>
+                                <th>Categoría</th>
+                                <th>Fecha</th>
+                                <th>Método</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tx-table-body">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 4: SUBSCRIPTIONS -->
+            <section id="tab-subscriptions" class="tab-content">
+                <div class="section-actions-header">
+                    <div>
+                        <h2>Suscripciones Recurrentes</h2>
+                        <p class="text-muted">Control de servicios mensuales/anuales y proyecciones de gasto</p>
+                    </div>
+                    <button class="btn btn-primary" id="btn-open-sub-modal">
+                        <i class="fa-solid fa-plus"></i> Nueva Suscripción
+                    </button>
+                </div>
+
+                <div class="subs-grid" id="subs-grid-container">
+                    <!-- Dynamic Sub Cards -->
+                </div>
+            </section>
+
+            <!-- TAB 5: BUDGETS -->
+            <section id="tab-budgets" class="tab-content">
+                <div class="section-actions-header">
+                    <div>
+                        <h2>Presupuestos Mensuales</h2>
+                        <p class="text-muted">Límites de gasto por categoría con alertas automáticas</p>
+                    </div>
+                </div>
+
+                <div class="budgets-grid" id="budgets-grid-container">
+                    <!-- Dynamic Budget Cards -->
+                </div>
+            </section>
+
+            <!-- TAB 6: CALCULATOR -->
+            <section id="tab-calculator" class="tab-content">
+                <div class="section-actions-header">
+                    <div>
+                        <h2>Calculadora de Cuotas y Amortización</h2>
+                        <p class="text-muted">Simula compras a plazos o tarjetas de crédito y regístralas directamente</p>
+                    </div>
+                </div>
+
+                <div class="calculator-container">
+                    <div class="calc-card-form">
+                        <h3><i class="fa-solid fa-sliders"></i> Parámetros de la Compra</h3>
+                        <form id="form-calculator">
+                            <div class="form-group">
+                                <label for="calc-title">Concepto / Producto</label>
+                                <input type="text" id="calc-title" required placeholder="Ej. Iphone, Consola, Laptop">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="calc-amount">Monto Total ($)</label>
+                                    <input type="number" step="0.01" id="calc-amount" required placeholder="1200.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="calc-months">Número de Cuotas (Meses)</label>
+                                    <input type="number" min="1" max="48" id="calc-months" required value="12">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="calc-interest">Tasa de Interés Mensual (%)</label>
+                                    <input type="number" step="0.1" min="0" id="calc-interest" value="1.5">
+                                </div>
+                                <div class="form-group">
+                                    <label for="calc-category">Categoría de Gasto</label>
+                                    <select id="calc-category">
+                                        <option value="Tecnología">Tecnología</option>
+                                        <option value="Compras & Estilo">Compras & Estilo</option>
+                                        <option value="Entretenimiento">Entretenimiento</option>
+                                        <option value="Transporte">Transporte</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="btn-calculate" style="width: 100%;">
+                                <i class="fa-solid fa-calculator"></i> Calcular Cuota
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="calc-card-results">
+                        <h3><i class="fa-solid fa-receipt"></i> Resumen de Cuotas</h3>
+                        <div class="calc-summary-box">
+                            <div class="calc-stat-item">
+                                <span class="calc-label">Cuota Estimada Mensual:</span>
+                                <span class="calc-value" id="res-monthly-payment">$0.00</span>
+                            </div>
+                            <div class="calc-stat-item">
+                                <span class="calc-label">Total Intereses:</span>
+                                <span class="calc-value" id="res-total-interest">$0.00</span>
+                            </div>
+                            <div class="calc-stat-item">
+                                <span class="calc-label">Monto Total a Pagar:</span>
+                                <span class="calc-value" id="res-total-pay">$0.00</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btn-add-calc-tx" style="width: 100%; margin-top: 20px;" disabled>
+                            <i class="fa-solid fa-circle-plus"></i> Registrar 1ra Cuota como Gasto
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: NUEVA TRANSACCIÓN -->
+    <div class="modal-overlay" id="modal-transaction">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-plus"></i> Registrar Transacción</h3>
+                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-transaction">
+                <div class="form-group">
+                    <label for="tx-title">Título o Concepto</label>
+                    <input type="text" id="tx-title" required placeholder="Ej. Supermercado, Sueldo, Uber">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tx-amount">Monto ($)</label>
+                        <input type="number" step="0.01" id="tx-amount" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="tx-type">Tipo</label>
+                        <select id="tx-type" required>
+                            <option value="expense">Gasto (-)</option>
+                            <option value="income">Ingreso (+)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tx-category">Categoría</label>
+                        <select id="tx-category" required>
+                            <option value="Alimentación & Supermercado">Alimentación & Supermercado</option>
+                            <option value="Servicios, Luz & Agua">Servicios, Luz & Agua</option>
+                            <option value="Servidores, Cloud & Software">Servidores, Cloud & Software</option>
+                            <option value="Entretenimiento & Streaming">Entretenimiento & Streaming</option>
+                            <option value="Transporte & Gasolina">Transporte & Gasolina</option>
+                            <option value="Salud & Bienestar">Salud & Bienestar</option>
+                            <option value="Vivienda & Alquiler">Vivienda & Alquiler</option>
+                            <option value="Educación & Cursos">Educación & Cursos</option>
+                            <option value="Compras & Estilo de Vida">Compras & Estilo de Vida</option>
+                            <option value="Ahorro e Inversión">Ahorro e Inversión</option>
+                            <option value="Viajes & Turismo">Viajes & Turismo</option>
+                            <option value="Mascotas">Mascotas</option>
+                            <option value="Hobbies & Tecnología">Hobbies & Tecnología</option>
+                            <option value="Impuestos & Trámites">Impuestos & Trámites</option>
+                            <option value="Regalos & Donaciones">Regalos & Donaciones</option>
+                            <option value="Ingresos & Salario">Ingresos & Salario</option>
+                            <option value="Freelance & Negocios">Freelance & Negocios</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tx-date">Fecha</label>
+                        <input type="date" id="tx-date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="tx-payment">Método de Pago</label>
+                    <select id="tx-payment">
+                        <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                        <option value="Tarjeta Débito">Tarjeta Débito</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="PayPal">PayPal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="tx-notes">Notas (Opcional)</label>
+                    <input type="text" id="tx-notes" placeholder="Detalles adicionales...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Transacción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA META DE AHORRO -->
+    <div class="modal-overlay" id="modal-savings-goal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-piggy-bank"></i> Nueva Meta de Ahorro</h3>
+                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-savings-goal">
+                <div class="form-group">
+                    <label for="goal-title">Nombre de la Meta</label>
+                    <input type="text" id="goal-title" required placeholder="Ej. Fondo Emergencia, Laptop, Viaje">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goal-target">Monto Objetivo ($)</label>
+                        <input type="number" step="0.01" id="goal-target" required placeholder="1000.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-initial">Monto Inicial ($)</label>
+                        <input type="number" step="0.01" id="goal-initial" value="0.00">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goal-category">Categoría</label>
+                        <input type="text" id="goal-category" value="General">
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-date">Fecha Límite</label>
+                        <input type="date" id="goal-date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Meta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: DEPOSITAR A META -->
+    <div class="modal-overlay" id="modal-deposit-goal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-vault"></i> Realizar Depósito a Meta</h3>
+                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-deposit-goal">
+                <input type="hidden" id="deposit-goal-id">
+                <div class="form-group">
+                    <label>Meta Seleccionada:</label>
+                    <div id="deposit-goal-name" style="font-weight: 700; color: var(--primary-blue); font-size: 16px; margin-top: 4px;">-</div>
+                </div>
+                <div class="form-group">
+                    <label for="deposit-amount">Monto a Abonar ($)</label>
+                    <input type="number" step="0.01" id="deposit-amount" required placeholder="50.00">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Abonar Fondo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA SUSCRIPCIÓN -->
+    <div class="modal-overlay" id="modal-subscription">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-arrows-rotate"></i> Añadir Suscripción</h3>
+                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-subscription">
+                <div class="form-group">
+                    <label for="sub-name">Nombre del Servicio</label>
+                    <input type="text" id="sub-name" required placeholder="Ej. Netflix, Spotify, AWS">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sub-cost">Costo ($)</label>
+                        <input type="number" step="0.01" id="sub-cost" required placeholder="9.99">
+                    </div>
+                    <div class="form-group">
+                        <label for="sub-cycle">Ciclo de Cobro</label>
+                        <select id="sub-cycle" required>
+                            <option value="monthly">Mensual</option>
+                            <option value="yearly">Anual</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sub-category">Categoría</label>
+                        <select id="sub-category" required>
+                            <option value="Entretenimiento">Entretenimiento</option>
+                            <option value="Servicios y Cloud">Servicios y Cloud</option>
+                            <option value="Educación">Educación</option>
+                            <option value="Productividad">Productividad</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sub-date">Próximo Cobro</label>
+                        <input type="date" id="sub-date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Suscripción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: IMPORTAR JSON -->
+    <div class="modal-overlay" id="modal-import-json">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-import"></i> Importación Masiva JSON</h3>
+                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-import-json">
+                <div class="form-group">
+                    <label for="import-json-area">Pega el contenido JSON de transacciones:</label>
+                    <textarea id="import-json-area" rows="8" style="width: 100%; background: var(--bg-dark); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; font-family: monospace; font-size: 12px;" placeholder='[{"title":"Mercado","amount":50.0,"type":"expense","category":"Alimentación","date":"2026-08-05"}]'></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Cargar Datos</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
