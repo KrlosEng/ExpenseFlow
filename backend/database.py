@@ -1,11 +1,22 @@
 import sqlite3
 import os
+import shutil
 from datetime import datetime, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "expenseflow.db")
+def get_db_path():
+    if os.environ.get("VERCEL") or not os.access(os.path.dirname(os.path.dirname(__file__)), os.W_OK):
+        tmp_db = "/tmp/expenseflow.db"
+        orig_db = os.path.join(os.path.dirname(__file__), "..", "expenseflow.db")
+        if not os.path.exists(tmp_db) and os.path.exists(orig_db):
+            try:
+                shutil.copyfile(orig_db, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+    return os.path.join(os.path.dirname(__file__), "..", "expenseflow.db")
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 
