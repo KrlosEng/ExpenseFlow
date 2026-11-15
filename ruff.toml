@@ -1,16 +1,9 @@
-[project]
-name = "expenseflow"
-version = "3.0.0"
-description = "Finanzas personales: ingresos, gastos, presupuestos, metas de ahorro y suscripciones."
-requires-python = ">=3.10"
-license = "MIT"
-
-[tool.ruff]
+# Configuración de ruff (lint)
 line-length = 130
 target-version = "py310"
 extend-exclude = [".taste-skill"]
 
-[tool.ruff.lint]
+[lint]
 # E/W: estilo · F: errores reales (nombres sin definir, imports sin usar) · I: orden de imports
 # B: errores frecuentes · UP: sintaxis moderna de Python
 select = ["E", "W", "F", "I", "B", "UP"]
@@ -19,14 +12,9 @@ ignore = [
     "B904",   # raise HTTPException dentro de except: el error original no aporta al cliente
 ]
 
-[tool.ruff.lint.per-file-ignores]
+[lint.per-file-ignores]
 # Las pruebas fijan DB_PATH antes de importar la app, a propósito
 "backend/test_api.py" = ["E402"]
 
-[tool.ruff.lint.isort]
+[lint.isort]
 known-first-party = ["app", "auth", "database", "backend"]
-
-[tool.pytest.ini_options]
-testpaths = ["backend"]
-pythonpath = ["backend"]
-filterwarnings = ["ignore::DeprecationWarning:starlette.*", "ignore:.*httpx2.*"]

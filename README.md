@@ -58,7 +58,7 @@ ExpenseFlow/
 │       └── theme.js          # Tema claro u oscuro antes de pintar
 ├── docs/screenshots/         # Capturas del README
 ├── .github/workflows/ci.yml  # Lint y pruebas en cada push
-├── pyproject.toml            # Configuración de ruff y pytest
+├── ruff.toml, pytest.ini     # Configuración de ruff y pytest
 ├── requirements.txt          # Dependencias de la aplicación
 ├── requirements-dev.txt      # pytest y ruff
 └── vercel.json
