@@ -3,591 +3,577 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AuraFinance - Inteligencia Financiera & Control de Ahorros</title>
+    <title>ExpenseFlow · Tus finanzas del mes</title>
+    <meta name="description" content="Lleva tus ingresos, gastos, presupuestos, metas de ahorro y suscripciones en un solo lugar.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23141413'/%3E%3Crect x='8' y='18' width='4' height='7' fill='%23e0b04a'/%3E%3Crect x='14' y='12' width='4' height='13' fill='%23e0b04a'/%3E%3Crect x='20' y='7' width='4' height='18' fill='%23e0b04a'/%3E%3C/svg%3E">
 
-    <!-- Google Fonts: Outfit & Inter -->
+    <!-- Tema claro/oscuro antes de pintar (archivo propio: la CSP no permite scripts en línea) -->
+    <script src="js/theme.js?v=9"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
-    <!-- FontAwesome icons CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Estilos CSS -->
-    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=9">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar">
-            <div class="logo-container">
-                <div class="logo-icon">
-                    <i class="fa-solid fa-bolt-lightning"></i>
-                </div>
-                <div class="logo-text">
-                    <h2>Aura<span>Finance</span></h2>
-                    <span class="badge-fintech">FINTECH SUITE v2</span>
-                </div>
-            </div>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
 
-            <nav class="nav-menu">
-                <button class="nav-item active" data-tab="dashboard" id="nav-dashboard">
-                    <i class="fa-solid fa-square-poll-vertical"></i>
-                    <span>Dashboard</span>
-                </button>
-                <button class="nav-item" data-tab="savings" id="nav-savings">
-                    <i class="fa-solid fa-piggy-bank"></i>
-                    <span>Metas de Ahorro</span>
-                </button>
-                <button class="nav-item" data-tab="transactions" id="nav-transactions">
-                    <i class="fa-solid fa-list-check"></i>
-                    <span>Transacciones</span>
-                </button>
-                <button class="nav-item" data-tab="subscriptions" id="nav-subscriptions">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                    <span>Suscripciones</span>
-                </button>
-                <button class="nav-item" data-tab="budgets" id="nav-budgets">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Presupuestos</span>
-                </button>
-                <button class="nav-item" data-tab="calculator" id="nav-calculator">
-                    <i class="fa-solid fa-calculator"></i>
-                    <span>Calculadora Cuotas</span>
-                </button>
+    <!-- PANTALLA DE ACCESO -->
+    <div class="auth-screen" id="auth-screen" hidden>
+        <div class="auth-card">
+            <h1>ExpenseFlow</h1>
+            <p class="auth-subtitle" id="auth-subtitle">Inicia sesión para ver tus finanzas.</p>
+
+            <form id="form-login" class="auth-form">
+                <div class="field">
+                    <label for="login-email">Correo</label>
+                    <input type="email" id="login-email" required autocomplete="email">
+                </div>
+                <div class="field">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" required autocomplete="current-password">
+                </div>
+                <p class="auth-error" id="login-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+                <p class="auth-switch">¿No tienes cuenta? <button type="button" data-auth-view="register">Crear una</button></p>
+            </form>
+
+            <form id="form-register" class="auth-form" hidden>
+                <div class="field">
+                    <label for="register-name">Nombre</label>
+                    <input type="text" id="register-name" required maxlength="80" autocomplete="name">
+                </div>
+                <div class="field">
+                    <label for="register-email">Correo</label>
+                    <input type="email" id="register-email" required autocomplete="email">
+                </div>
+                <div class="field">
+                    <label for="register-password">Contraseña</label>
+                    <input type="password" id="register-password" required minlength="8" maxlength="128" autocomplete="new-password" aria-describedby="register-password-hint">
+                    <span class="field-hint" id="register-password-hint">Mínimo 8 caracteres.</span>
+                </div>
+                <div class="field">
+                    <label for="register-currency">Moneda</label>
+                    <select id="register-currency">
+                        <option value="COP">Pesos colombianos (COP)</option>
+                        <option value="USD">Dólares (USD)</option>
+                        <option value="EUR">Euros (EUR)</option>
+                        <option value="MXN">Pesos mexicanos (MXN)</option>
+                    </select>
+                </div>
+                <label class="check"><input type="checkbox" id="register-sample"> Empezar con datos de ejemplo</label>
+                <p class="auth-error" id="register-error" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-block">Crear cuenta</button>
+                <p class="auth-switch">¿Ya tienes cuenta? <button type="button" data-auth-view="login">Inicia sesión</button></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Barra superior en el teléfono -->
+    <header class="mobile-bar">
+        <span class="wordmark">ExpenseFlow</span>
+        <button type="button" class="btn btn-secondary" id="btn-menu" aria-expanded="false" aria-controls="sidebar">Menú</button>
+    </header>
+
+    <div class="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="wordmark">ExpenseFlow</div>
+            <nav class="nav" aria-label="Secciones">
+                <button type="button" class="nav-item" data-tab="dashboard" aria-current="page">Resumen</button>
+                <button type="button" class="nav-item" data-tab="transactions">Movimientos</button>
+                <button type="button" class="nav-item" data-tab="budgets">Presupuestos</button>
+                <button type="button" class="nav-item" data-tab="savings">Metas de ahorro</button>
+                <button type="button" class="nav-item" data-tab="subscriptions">Suscripciones</button>
+                <button type="button" class="nav-item" data-tab="calculator">Calculadora de cuotas</button>
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="server-status">
-                    <span class="status-dot online"></span>
-                    <div class="status-info">
-                        <span class="status-title">Backend API</span>
-                        <span class="status-subtitle" id="api-status-text">Conectando...</span>
-                    </div>
+            <div class="sidebar-foot">
+                <div class="status" role="status">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="api-status-text">Conectando…</span>
+                </div>
+                <div class="user-row">
+                    <span class="user-name" id="current-user-name"></span>
+                </div>
+                <div class="currency-row">
+                    <label for="user-currency">Moneda</label>
+                    <select id="user-currency">
+                        <option value="COP">Pesos colombianos (COP)</option>
+                        <option value="USD">Dólares (USD)</option>
+                        <option value="EUR">Euros (EUR)</option>
+                        <option value="MXN">Pesos mexicanos (MXN)</option>
+                    </select>
+                </div>
+                <div class="foot-actions">
+                    <button type="button" class="link-btn" id="btn-theme">Modo oscuro</button>
+                    <button type="button" class="link-btn" id="btn-logout">Cerrar sesión</button>
                 </div>
             </div>
         </aside>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Header Top Bar -->
-            <header class="top-header">
-                <div class="header-title">
-                    <h1 id="page-title">Dashboard Financiero</h1>
-                    <p id="page-subtitle">Plataforma Inteligente de Gestión Financiera & Ahorro</p>
-                </div>
-                <div class="header-actions">
-                    <button class="btn btn-secondary" id="btn-open-import-modal">
-                        <i class="fa-solid fa-file-import"></i> Importar JSON
-                    </button>
-                    <button class="btn btn-secondary" id="btn-export-csv">
-                        <i class="fa-solid fa-file-export"></i> Exportar CSV
-                    </button>
-                    <button class="btn btn-primary" id="btn-open-tx-modal">
-                        <i class="fa-solid fa-plus"></i> Nueva Transacción
-                    </button>
-                </div>
-            </header>
+        <main class="canvas" id="main" tabindex="-1">
+            <div class="canvas-inner">
 
-            <!-- TAB 1: DASHBOARD -->
-            <section id="tab-dashboard" class="tab-content active">
-                <!-- KPI Summary Grid -->
-                <div class="kpi-grid">
-                    <div class="kpi-card glow-blue">
-                        <div class="kpi-header">
-                            <span class="kpi-title">Balance Neto</span>
-                            <div class="kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
+                <!-- RESUMEN -->
+                <section class="tab" id="tab-dashboard" aria-labelledby="title-dashboard">
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-dashboard">Tu mes</h1>
+                            <p class="finding" id="dashboard-finding">Cargando tu resumen…</p>
                         </div>
-                        <div class="kpi-value" id="kpi-net-balance">$0.00</div>
-                        <div class="kpi-footer text-positive">
-                            <i class="fa-solid fa-shield-halved"></i> Salud financiera activa
+                        <div class="title-actions">
+                            <button type="button" class="btn btn-secondary" data-open="modal-import-json">Importar</button>
+                            <button type="button" class="btn btn-secondary" id="btn-export-csv">Exportar CSV</button>
+                            <button type="button" class="btn btn-primary" data-open="modal-transaction">Registrar movimiento</button>
                         </div>
                     </div>
 
-                    <div class="kpi-card glow-green">
-                        <div class="kpi-header">
-                            <span class="kpi-title">Total Ingresos</span>
-                            <div class="kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                        </div>
-                        <div class="kpi-value" id="kpi-income">$0.00</div>
-                        <div class="kpi-footer text-positive">
-                            <i class="fa-solid fa-circle-check"></i> Entradas acumuladas
-                        </div>
-                    </div>
+                    <div class="alerts" id="budget-alerts" role="status" hidden></div>
 
-                    <div class="kpi-card glow-red">
-                        <div class="kpi-header">
-                            <span class="kpi-title">Total Gastos</span>
-                            <div class="kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
-                        </div>
-                        <div class="kpi-value" id="kpi-expense">$0.00</div>
-                        <div class="kpi-footer text-negative">
-                            <i class="fa-solid fa-receipt"></i> Gastos del periodo
-                        </div>
-                    </div>
+                    <div class="grid">
+                        <article class="card span-2" aria-labelledby="hero-label">
+                            <p class="hero-label" id="hero-label">Te queda este mes</p>
+                            <p class="hero-figure" id="kpi-net-balance">—</p>
+                            <dl class="hero-parts">
+                                <div><dt>Entró</dt><dd id="kpi-income">—</dd></div>
+                                <div><dt>Salió</dt><dd id="kpi-expense">—</dd></div>
+                                <div><dt>Guardado en metas</dt><dd id="kpi-total-saved">—</dd></div>
+                            </dl>
+                        </article>
 
-                    <div class="kpi-card glow-purple">
-                        <div class="kpi-header">
-                            <span class="kpi-title">Total Ahorrado</span>
-                            <div class="kpi-icon purple"><i class="fa-solid fa-vault"></i></div>
-                        </div>
-                        <div class="kpi-value" id="kpi-total-saved">$0.00</div>
-                        <div class="kpi-footer text-positive">
-                            <i class="fa-solid fa-piggy-bank"></i> En alcancías virtuales
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Financial Health Score & Charts Grid -->
-                <div class="dashboard-row-grid">
-                    <!-- Health Score Widget Card -->
-                    <div class="health-card">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-heart-pulse"></i> Diagnostic Score</h3>
-                        </div>
-                        <div class="health-score-body">
-                            <div class="score-circle-box">
-                                <svg class="score-circle-svg" viewBox="0 0 36 36">
-                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                    <path class="circle-fill" id="score-stroke-fill" stroke-dasharray="75, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                </svg>
-                                <div class="score-number-text" id="health-score-val">0</div>
+                        <article class="card" aria-labelledby="health-title">
+                            <div class="card-head"><h2 id="health-title">Salud financiera</h2></div>
+                            <div class="score">
+                                <span class="score-value" id="health-score-val">—</span>
+                                <span class="score-scale">de 100</span>
                             </div>
-                            <div class="health-tips-container">
-                                <h4>Diagnóstico Inteligente:</h4>
-                                <ul id="health-tips-list">
-                                    <li>Cargando evaluación de IA...</li>
-                                </ul>
+                            <div class="score-meter" aria-hidden="true"><span id="health-score-meter"></span></div>
+                            <ul class="tips" id="health-tips-list"></ul>
+                        </article>
+
+                        <article class="card span-2" aria-labelledby="cat-title">
+                            <div class="card-head">
+                                <h2 id="cat-title">En qué se fue el dinero</h2>
+                                <p id="cat-total"></p>
+                            </div>
+                            <div id="category-chart"></div>
+                        </article>
+
+                        <article class="card" aria-labelledby="near-title">
+                            <div class="card-head">
+                                <h2 id="near-title">Presupuestos más justos</h2>
+                                <button type="button" class="link-btn" data-goto="budgets">Ver todos</button>
+                            </div>
+                            <div id="near-budgets"></div>
+                        </article>
+
+                        <article class="card span-2" aria-labelledby="trend-title">
+                            <div class="card-head">
+                                <h2 id="trend-title">Gasto por día</h2>
+                                <p id="trend-caption"></p>
+                            </div>
+                            <div id="trend-chart"></div>
+                        </article>
+
+                        <article class="card" aria-labelledby="upcoming-title">
+                            <div class="card-head">
+                                <h2 id="upcoming-title">Próximos cobros</h2>
+                                <button type="button" class="link-btn" data-goto="subscriptions">Ver todos</button>
+                            </div>
+                            <div id="upcoming-subs-list"></div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- MOVIMIENTOS -->
+                <section class="tab" id="tab-transactions" aria-labelledby="title-transactions" hidden>
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-transactions">Movimientos</h1>
+                            <p>Todo lo que entra y sale, del más reciente al más antiguo.</p>
+                        </div>
+                        <div class="title-actions">
+                            <button type="button" class="btn btn-primary" data-open="modal-transaction">Registrar movimiento</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="filters" role="search">
+                            <div class="filter-search">
+                                <label class="sr-only" for="tx-search-input">Buscar</label>
+                                <input type="search" id="tx-search-input" placeholder="Buscar por concepto o nota">
+                            </div>
+                            <div>
+                                <label class="sr-only" for="tx-filter-start">Desde</label>
+                                <input type="date" id="tx-filter-start" title="Desde">
+                            </div>
+                            <div>
+                                <label class="sr-only" for="tx-filter-end">Hasta</label>
+                                <input type="date" id="tx-filter-end" title="Hasta">
+                            </div>
+                            <div>
+                                <label class="sr-only" for="tx-filter-type">Tipo</label>
+                                <select id="tx-filter-type">
+                                    <option value="">Ingresos y gastos</option>
+                                    <option value="expense">Solo gastos</option>
+                                    <option value="income">Solo ingresos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="sr-only" for="tx-filter-category">Categoría</label>
+                                <select id="tx-filter-category">
+                                    <option value="">Todas las categorías</option>
+                                </select>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Doughnut Category Chart -->
-                    <div class="chart-card">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-chart-pie"></i> Gastos por Categoría</h3>
+                        <p class="summary-line" id="tx-summary" aria-live="polite"></p>
+                        <div class="table-wrap">
+                            <table class="table tx-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Concepto</th>
+                                        <th scope="col">Categoría</th>
+                                        <th scope="col">Fecha</th>
+                                        <th scope="col">Método</th>
+                                        <th scope="col" class="right">Monto</th>
+                                        <th scope="col"><span class="sr-only">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tx-table-body"></tbody>
+                            </table>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="categoryChart"></canvas>
+                        <nav class="pager" id="tx-pager" aria-label="Páginas de movimientos" hidden>
+                            <button type="button" class="btn btn-secondary" id="tx-prev">Anteriores</button>
+                            <span class="pager-info" id="tx-page-info" aria-live="polite"></span>
+                            <button type="button" class="btn btn-secondary" id="tx-next">Siguientes</button>
+                        </nav>
+                    </div>
+                </section>
+
+                <!-- PRESUPUESTOS -->
+                <section class="tab" id="tab-budgets" aria-labelledby="title-budgets" hidden>
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-budgets">Presupuestos</h1>
+                            <p id="budgets-summary">Cuánto llevas gastado este mes en cada categoría frente a su límite.</p>
                         </div>
                     </div>
-                </div>
+                    <div class="alerts" id="budget-alerts-tab" role="status" hidden></div>
+                    <div class="card"><ul class="progress-list" id="budgets-grid-container"></ul></div>
+                </section>
 
-                <!-- Trend Chart Section -->
-                <div class="chart-card style-full-width" style="margin-top: 24px;">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-chart-line"></i> Tendencia Diaria de Gastos</h3>
+                <!-- METAS -->
+                <section class="tab" id="tab-savings" aria-labelledby="title-savings" hidden>
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-savings">Metas de ahorro</h1>
+                            <p id="goals-summary">Dinero apartado para lo que quieres lograr.</p>
+                        </div>
+                        <div class="title-actions">
+                            <button type="button" class="btn btn-primary" data-open="modal-savings-goal">Nueva meta</button>
+                        </div>
                     </div>
-                    <div class="chart-container">
-                        <canvas id="trendChart"></canvas>
+                    <div class="card"><ul class="progress-list" id="goals-grid-container"></ul></div>
+                </section>
+
+                <!-- SUSCRIPCIONES -->
+                <section class="tab" id="tab-subscriptions" aria-labelledby="title-subscriptions" hidden>
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-subscriptions">Suscripciones</h1>
+                            <p id="subs-summary">Servicios que te cobran cada mes o cada año.</p>
+                        </div>
+                        <div class="title-actions">
+                            <button type="button" class="btn btn-primary" data-open="modal-subscription">Añadir suscripción</button>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Upcoming Subscriptions Widget -->
-                <div class="widget-card" style="margin-top: 24px;">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-bell"></i> Próximos Cobros de Suscripciones</h3>
-                        <button class="btn-text" id="btn-switch-subs-tab">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
+                    <div class="card">
+                        <div class="table-wrap">
+                            <table class="table subs-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Servicio</th>
+                                        <th scope="col">Categoría</th>
+                                        <th scope="col">Próximo cobro</th>
+                                        <th scope="col" class="right">Costo</th>
+                                        <th scope="col">Estado</th>
+                                        <th scope="col"><span class="sr-only">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="subs-grid-container"></tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="upcoming-subs-list" id="upcoming-subs-list">
-                        <!-- Dynamic content -->
+                </section>
+
+                <!-- CALCULADORA -->
+                <section class="tab" id="tab-calculator" aria-labelledby="title-calculator" hidden>
+                    <div class="title-row">
+                        <div>
+                            <h1 id="title-calculator">Calculadora de cuotas</h1>
+                            <p>Mira cuánto pagarás cada mes antes de comprar a plazos.</p>
+                        </div>
                     </div>
-                </div>
-            </section>
-
-            <!-- TAB 2: SAVINGS GOALS -->
-            <section id="tab-savings" class="tab-content">
-                <div class="section-actions-header">
-                    <div>
-                        <h2>Metas de Ahorro (Alcancías Virtuales)</h2>
-                        <p class="text-muted">Asegura tus objetivos financieros acumulando fondos para proyectos específicos</p>
-                    </div>
-                    <button class="btn btn-primary" id="btn-open-goal-modal">
-                        <i class="fa-solid fa-plus"></i> Nueva Meta de Ahorro
-                    </button>
-                </div>
-
-                <div class="goals-grid" id="goals-grid-container">
-                    <!-- Dynamic Savings Goal Cards -->
-                </div>
-            </section>
-
-            <!-- TAB 3: TRANSACTIONS -->
-            <section id="tab-transactions" class="tab-content">
-                <div class="table-controls">
-                    <div class="search-box">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="tx-search-input" placeholder="Buscar por título o nota...">
-                    </div>
-                    <div class="filters-group">
-                        <input type="date" id="tx-filter-start" class="select-input" title="Fecha inicio">
-                        <input type="date" id="tx-filter-end" class="select-input" title="Fecha fin">
-                        <select id="tx-filter-type" class="select-input">
-                            <option value="">Todos los Tipos</option>
-                            <option value="expense">Solo Gastos</option>
-                            <option value="income">Solo Ingresos</option>
-                        </select>
-                        <select id="tx-filter-category" class="select-input">
-                            <option value="">Todas las Categorías</option>
-                            <option value="Alimentación & Supermercado">Alimentación & Supermercado</option>
-                            <option value="Servicios, Luz & Agua">Servicios, Luz & Agua</option>
-                            <option value="Servidores, Cloud & Software">Servidores, Cloud & Software</option>
-                            <option value="Entretenimiento & Streaming">Entretenimiento & Streaming</option>
-                            <option value="Transporte & Gasolina">Transporte & Gasolina</option>
-                            <option value="Salud & Bienestar">Salud & Bienestar</option>
-                            <option value="Vivienda & Alquiler">Vivienda & Alquiler</option>
-                            <option value="Educación & Cursos">Educación & Cursos</option>
-                            <option value="Compras & Estilo de Vida">Compras & Estilo de Vida</option>
-                            <option value="Ahorro e Inversión">Ahorro e Inversión</option>
-                            <option value="Viajes & Turismo">Viajes & Turismo</option>
-                            <option value="Mascotas">Mascotas</option>
-                            <option value="Hobbies & Tecnología">Hobbies & Tecnología</option>
-                            <option value="Impuestos & Trámites">Impuestos & Trámites</option>
-                            <option value="Regalos & Donaciones">Regalos & Donaciones</option>
-                            <option value="Ingresos & Salario">Ingresos & Salario</option>
-                            <option value="Freelance & Negocios">Freelance & Negocios</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="table-card">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Transacción</th>
-                                <th>Tipo</th>
-                                <th>Categoría</th>
-                                <th>Fecha</th>
-                                <th>Método</th>
-                                <th>Monto</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tx-table-body">
-                            <!-- Dynamic Content -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- TAB 4: SUBSCRIPTIONS -->
-            <section id="tab-subscriptions" class="tab-content">
-                <div class="section-actions-header">
-                    <div>
-                        <h2>Suscripciones Recurrentes</h2>
-                        <p class="text-muted">Control de servicios mensuales/anuales y proyecciones de gasto</p>
-                    </div>
-                    <button class="btn btn-primary" id="btn-open-sub-modal">
-                        <i class="fa-solid fa-plus"></i> Nueva Suscripción
-                    </button>
-                </div>
-
-                <div class="subs-grid" id="subs-grid-container">
-                    <!-- Dynamic Sub Cards -->
-                </div>
-            </section>
-
-            <!-- TAB 5: BUDGETS -->
-            <section id="tab-budgets" class="tab-content">
-                <div class="section-actions-header">
-                    <div>
-                        <h2>Presupuestos Mensuales</h2>
-                        <p class="text-muted">Límites de gasto por categoría con alertas automáticas</p>
-                    </div>
-                </div>
-
-                <div class="budgets-grid" id="budgets-grid-container">
-                    <!-- Dynamic Budget Cards -->
-                </div>
-            </section>
-
-            <!-- TAB 6: CALCULATOR -->
-            <section id="tab-calculator" class="tab-content">
-                <div class="section-actions-header">
-                    <div>
-                        <h2>Calculadora de Cuotas y Amortización</h2>
-                        <p class="text-muted">Simula compras a plazos o tarjetas de crédito y regístralas directamente</p>
-                    </div>
-                </div>
-
-                <div class="calculator-container">
-                    <div class="calc-card-form">
-                        <h3><i class="fa-solid fa-sliders"></i> Parámetros de la Compra</h3>
-                        <form id="form-calculator">
-                            <div class="form-group">
-                                <label for="calc-title">Concepto / Producto</label>
-                                <input type="text" id="calc-title" required placeholder="Ej. Iphone, Consola, Laptop">
+                    <div class="grid">
+                        <form class="card span-2" id="form-calculator">
+                            <div class="card-head"><h2>La compra</h2></div>
+                            <div class="field">
+                                <label for="calc-title">Qué vas a comprar</label>
+                                <input type="text" id="calc-title" required placeholder="Por ejemplo, un portátil">
                             </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="calc-amount">Monto Total ($)</label>
-                                    <input type="number" step="0.01" id="calc-amount" required placeholder="1200.00">
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="calc-amount">Precio total</label>
+                                    <input type="number" step="any" min="0.01" id="calc-amount" required>
                                 </div>
-                                <div class="form-group">
-                                    <label for="calc-months">Número de Cuotas (Meses)</label>
+                                <div class="field">
+                                    <label for="calc-months">Número de cuotas</label>
                                     <input type="number" min="1" max="48" id="calc-months" required value="12">
                                 </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="calc-interest">Tasa de Interés Mensual (%)</label>
-                                    <input type="number" step="0.1" min="0" id="calc-interest" value="1.5">
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="calc-interest">Interés mensual (%)</label>
+                                    <input type="number" step="any" min="0" id="calc-interest" value="1.5">
                                 </div>
-                                <div class="form-group">
-                                    <label for="calc-category">Categoría de Gasto</label>
-                                    <select id="calc-category">
-                                        <option value="Tecnología">Tecnología</option>
-                                        <option value="Compras & Estilo">Compras & Estilo</option>
-                                        <option value="Entretenimiento">Entretenimiento</option>
-                                        <option value="Transporte">Transporte</option>
-                                    </select>
+                                <div class="field">
+                                    <label for="calc-category">Categoría</label>
+                                    <select id="calc-category"></select>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-secondary" id="btn-calculate" style="width: 100%;">
-                                <i class="fa-solid fa-calculator"></i> Calcular Cuota
-                            </button>
+                            <button type="submit" class="btn btn-secondary">Calcular</button>
                         </form>
-                    </div>
 
-                    <div class="calc-card-results">
-                        <h3><i class="fa-solid fa-receipt"></i> Resumen de Cuotas</h3>
-                        <div class="calc-summary-box">
-                            <div class="calc-stat-item">
-                                <span class="calc-label">Cuota Estimada Mensual:</span>
-                                <span class="calc-value" id="res-monthly-payment">$0.00</span>
-                            </div>
-                            <div class="calc-stat-item">
-                                <span class="calc-label">Total Intereses:</span>
-                                <span class="calc-value" id="res-total-interest">$0.00</span>
-                            </div>
-                            <div class="calc-stat-item">
-                                <span class="calc-label">Monto Total a Pagar:</span>
-                                <span class="calc-value" id="res-total-pay">$0.00</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" id="btn-add-calc-tx" style="width: 100%; margin-top: 20px;" disabled>
-                            <i class="fa-solid fa-circle-plus"></i> Registrar 1ra Cuota como Gasto
-                        </button>
+                        <article class="card calc-results" aria-labelledby="calc-results-title" aria-live="polite">
+                            <div class="card-head"><h2 id="calc-results-title">Pagarías</h2></div>
+                            <dl>
+                                <div><dt>Cada mes</dt><dd id="res-monthly-payment">—</dd></div>
+                                <div><dt>En intereses</dt><dd class="secondary" id="res-total-interest">—</dd></div>
+                                <div><dt>En total</dt><dd class="secondary" id="res-total-pay">—</dd></div>
+                            </dl>
+                            <button type="button" class="btn btn-primary btn-block" id="btn-add-calc-tx" disabled>Registrar la primera cuota</button>
+                        </article>
                     </div>
-                </div>
-            </section>
+                </section>
+            </div>
         </main>
     </div>
 
-    <!-- MODAL: NUEVA TRANSACCIÓN -->
-    <div class="modal-overlay" id="modal-transaction">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-circle-plus"></i> Registrar Transacción</h3>
-                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+    <!-- DIÁLOGO: MOVIMIENTO -->
+    <dialog class="modal" id="modal-transaction" aria-labelledby="modal-tx-title">
+        <form id="form-transaction">
+            <input type="hidden" id="tx-id">
+            <div class="modal-head">
+                <h2 id="modal-tx-title">Registrar movimiento</h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
             </div>
-            <form id="form-transaction">
-                <div class="form-group">
-                    <label for="tx-title">Título o Concepto</label>
-                    <input type="text" id="tx-title" required placeholder="Ej. Supermercado, Sueldo, Uber">
+            <div class="field">
+                <label for="tx-title">Concepto</label>
+                <input type="text" id="tx-title" required maxlength="120" placeholder="Por ejemplo, mercado de la semana">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="tx-amount">Monto</label>
+                    <input type="number" step="any" min="0.01" id="tx-amount" required>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tx-amount">Monto ($)</label>
-                        <input type="number" step="0.01" id="tx-amount" required placeholder="0.00">
-                    </div>
-                    <div class="form-group">
-                        <label for="tx-type">Tipo</label>
-                        <select id="tx-type" required>
-                            <option value="expense">Gasto (-)</option>
-                            <option value="income">Ingreso (+)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tx-category">Categoría</label>
-                        <select id="tx-category" required>
-                            <option value="Alimentación & Supermercado">Alimentación & Supermercado</option>
-                            <option value="Servicios, Luz & Agua">Servicios, Luz & Agua</option>
-                            <option value="Servidores, Cloud & Software">Servidores, Cloud & Software</option>
-                            <option value="Entretenimiento & Streaming">Entretenimiento & Streaming</option>
-                            <option value="Transporte & Gasolina">Transporte & Gasolina</option>
-                            <option value="Salud & Bienestar">Salud & Bienestar</option>
-                            <option value="Vivienda & Alquiler">Vivienda & Alquiler</option>
-                            <option value="Educación & Cursos">Educación & Cursos</option>
-                            <option value="Compras & Estilo de Vida">Compras & Estilo de Vida</option>
-                            <option value="Ahorro e Inversión">Ahorro e Inversión</option>
-                            <option value="Viajes & Turismo">Viajes & Turismo</option>
-                            <option value="Mascotas">Mascotas</option>
-                            <option value="Hobbies & Tecnología">Hobbies & Tecnología</option>
-                            <option value="Impuestos & Trámites">Impuestos & Trámites</option>
-                            <option value="Regalos & Donaciones">Regalos & Donaciones</option>
-                            <option value="Ingresos & Salario">Ingresos & Salario</option>
-                            <option value="Freelance & Negocios">Freelance & Negocios</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="tx-date">Fecha</label>
-                        <input type="date" id="tx-date" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="tx-payment">Método de Pago</label>
-                    <select id="tx-payment">
-                        <option value="Tarjeta Crédito">Tarjeta Crédito</option>
-                        <option value="Tarjeta Débito">Tarjeta Débito</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="PayPal">PayPal</option>
+                <div class="field">
+                    <label for="tx-type">Tipo</label>
+                    <select id="tx-type" required>
+                        <option value="expense">Gasto</option>
+                        <option value="income">Ingreso</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="tx-notes">Notas (Opcional)</label>
-                    <input type="text" id="tx-notes" placeholder="Detalles adicionales...">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Transacción</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: NUEVA META DE AHORRO -->
-    <div class="modal-overlay" id="modal-savings-goal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-piggy-bank"></i> Nueva Meta de Ahorro</h3>
-                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <form id="form-savings-goal">
-                <div class="form-group">
-                    <label for="goal-title">Nombre de la Meta</label>
-                    <input type="text" id="goal-title" required placeholder="Ej. Fondo Emergencia, Laptop, Viaje">
+            <div class="field-row">
+                <div class="field">
+                    <label for="tx-category">Categoría</label>
+                    <select id="tx-category" required></select>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="goal-target">Monto Objetivo ($)</label>
-                        <input type="number" step="0.01" id="goal-target" required placeholder="1000.00">
-                    </div>
-                    <div class="form-group">
-                        <label for="goal-initial">Monto Inicial ($)</label>
-                        <input type="number" step="0.01" id="goal-initial" value="0.00">
-                    </div>
+                <div class="field">
+                    <label for="tx-date">Fecha</label>
+                    <input type="date" id="tx-date" required>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="goal-category">Categoría</label>
-                        <input type="text" id="goal-category" value="General">
-                    </div>
-                    <div class="form-group">
-                        <label for="goal-date">Fecha Límite</label>
-                        <input type="date" id="goal-date" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear Meta</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: DEPOSITAR A META -->
-    <div class="modal-overlay" id="modal-deposit-goal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-vault"></i> Realizar Depósito a Meta</h3>
-                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <form id="form-deposit-goal">
-                <input type="hidden" id="deposit-goal-id">
-                <div class="form-group">
-                    <label>Meta Seleccionada:</label>
-                    <div id="deposit-goal-name" style="font-weight: 700; color: var(--primary-blue); font-size: 16px; margin-top: 4px;">-</div>
-                </div>
-                <div class="form-group">
-                    <label for="deposit-amount">Monto a Abonar ($)</label>
-                    <input type="number" step="0.01" id="deposit-amount" required placeholder="50.00">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Abonar Fondo</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: NUEVA SUSCRIPCIÓN -->
-    <div class="modal-overlay" id="modal-subscription">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-arrows-rotate"></i> Añadir Suscripción</h3>
-                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            <div class="field">
+                <label for="tx-payment">Cómo pagaste</label>
+                <select id="tx-payment">
+                    <option value="Tarjeta Crédito">Tarjeta de crédito</option>
+                    <option value="Tarjeta Débito">Tarjeta débito</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="PayPal">PayPal</option>
+                </select>
             </div>
-            <form id="form-subscription">
-                <div class="form-group">
-                    <label for="sub-name">Nombre del Servicio</label>
-                    <input type="text" id="sub-name" required placeholder="Ej. Netflix, Spotify, AWS">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="sub-cost">Costo ($)</label>
-                        <input type="number" step="0.01" id="sub-cost" required placeholder="9.99">
-                    </div>
-                    <div class="form-group">
-                        <label for="sub-cycle">Ciclo de Cobro</label>
-                        <select id="sub-cycle" required>
-                            <option value="monthly">Mensual</option>
-                            <option value="yearly">Anual</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="sub-category">Categoría</label>
-                        <select id="sub-category" required>
-                            <option value="Entretenimiento">Entretenimiento</option>
-                            <option value="Servicios y Cloud">Servicios y Cloud</option>
-                            <option value="Educación">Educación</option>
-                            <option value="Productividad">Productividad</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="sub-date">Próximo Cobro</label>
-                        <input type="date" id="sub-date" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Suscripción</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: IMPORTAR JSON -->
-    <div class="modal-overlay" id="modal-import-json">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-file-import"></i> Importación Masiva JSON</h3>
-                <button class="btn-icon close-modal"><i class="fa-solid fa-xmark"></i></button>
+            <div class="field">
+                <label for="tx-notes">Nota (opcional)</label>
+                <input type="text" id="tx-notes" maxlength="500">
             </div>
-            <form id="form-import-json">
-                <div class="form-group">
-                    <label for="import-json-area">Pega el contenido JSON de transacciones:</label>
-                    <textarea id="import-json-area" rows="8" style="width: 100%; background: var(--bg-dark); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; font-family: monospace; font-size: 12px;" placeholder='[{"title":"Mercado","amount":50.0,"type":"expense","category":"Alimentación","date":"2026-08-05"}]'></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Cargar Datos</button>
-                </div>
-            </form>
-        </div>
-    </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </dialog>
 
-    <!-- Scripts -->
-    <script src="js/api.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/app.js"></script>
+    <!-- DIÁLOGO: NUEVA META -->
+    <dialog class="modal" id="modal-savings-goal" aria-labelledby="modal-goal-title">
+        <form id="form-savings-goal">
+            <input type="hidden" id="goal-id">
+            <div class="modal-head">
+                <h2 id="modal-goal-title">Nueva meta de ahorro</h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+            </div>
+            <div class="field">
+                <label for="goal-title">Para qué es</label>
+                <input type="text" id="goal-title" required maxlength="80" placeholder="Por ejemplo, fondo de emergencia">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="goal-target">Cuánto necesitas</label>
+                    <input type="number" step="any" min="0.01" id="goal-target" required>
+                </div>
+                <div class="field" id="goal-initial-field">
+                    <label for="goal-initial">Ya tienes</label>
+                    <input type="number" step="any" min="0" id="goal-initial" value="0">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="goal-category">Categoría</label>
+                    <input type="text" id="goal-category" value="General" maxlength="60">
+                </div>
+                <div class="field">
+                    <label for="goal-date">Para cuándo</label>
+                    <input type="date" id="goal-date" required>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Crear meta</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- DIÁLOGO: ABONAR A META -->
+    <dialog class="modal" id="modal-deposit-goal" aria-labelledby="modal-deposit-title">
+        <form id="form-deposit-goal">
+            <div class="modal-head">
+                <h2 id="modal-deposit-title">Abonar a <span id="deposit-goal-name">la meta</span></h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+            </div>
+            <input type="hidden" id="deposit-goal-id">
+            <div class="field">
+                <label for="deposit-amount">Monto</label>
+                <input type="number" step="any" min="0.01" id="deposit-amount" required aria-describedby="deposit-hint">
+                <span class="field-hint" id="deposit-hint"></span>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Abonar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- DIÁLOGO: SUSCRIPCIÓN -->
+    <dialog class="modal" id="modal-subscription" aria-labelledby="modal-sub-title">
+        <form id="form-subscription">
+            <input type="hidden" id="sub-id">
+            <div class="modal-head">
+                <h2 id="modal-sub-title">Añadir suscripción</h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+            </div>
+            <div class="field">
+                <label for="sub-name">Servicio</label>
+                <input type="text" id="sub-name" required maxlength="80" placeholder="Por ejemplo, Netflix">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="sub-cost">Costo</label>
+                    <input type="number" step="any" min="0.01" id="sub-cost" required>
+                </div>
+                <div class="field">
+                    <label for="sub-cycle">Se cobra</label>
+                    <select id="sub-cycle" required>
+                        <option value="monthly">Cada mes</option>
+                        <option value="yearly">Cada año</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="sub-category">Categoría</label>
+                    <select id="sub-category" required></select>
+                </div>
+                <div class="field">
+                    <label for="sub-date">Próximo cobro</label>
+                    <input type="date" id="sub-date" required>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- DIÁLOGO: IMPORTAR -->
+    <dialog class="modal" id="modal-import-json" aria-labelledby="modal-import-title">
+        <form id="form-import-json">
+            <div class="modal-head">
+                <h2 id="modal-import-title">Importar movimientos</h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+            </div>
+            <div class="field">
+                <label for="import-file">Archivo CSV o JSON</label>
+                <input type="file" id="import-file" accept=".csv,.json,text/csv,application/json">
+            </div>
+            <div class="field">
+                <label for="import-json-area">O pega el contenido</label>
+                <textarea id="import-json-area" rows="7" required aria-describedby="import-hint"></textarea>
+                <span class="field-hint" id="import-hint">Hasta 1.000 movimientos. El CSV puede ser el que exporta ExpenseFlow o uno con columnas Fecha, Concepto, Monto, Tipo (gasto o ingreso) y Categoría, separadas por coma o punto y coma.</span>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- DIÁLOGO: CAMBIAR LÍMITE DE PRESUPUESTO -->
+    <dialog class="modal" id="modal-budget" aria-labelledby="modal-budget-title">
+        <form id="form-budget">
+            <div class="modal-head">
+                <h2 id="modal-budget-title">Límite de <span id="budget-category-name"></span></h2>
+                <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+            </div>
+            <input type="hidden" id="budget-category">
+            <div class="field">
+                <label for="budget-limit">Límite mensual</label>
+                <input type="number" step="any" min="0.01" id="budget-limit" required>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- DIÁLOGO: CONFIRMAR -->
+    <dialog class="modal" id="modal-confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+        <form method="dialog">
+            <div class="modal-head"><h2 id="confirm-title">¿Eliminar?</h2></div>
+            <p class="modal-text" id="confirm-text"></p>
+            <div class="modal-foot">
+                <button type="submit" class="btn btn-secondary" value="cancel">Cancelar</button>
+                <button type="submit" class="btn btn-danger" value="ok" id="confirm-ok">Eliminar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script src="js/api.js?v=9"></script>
+    <script src="js/charts.js?v=9"></script>
+    <script src="js/app.js?v=9"></script>
 </body>
 </html>

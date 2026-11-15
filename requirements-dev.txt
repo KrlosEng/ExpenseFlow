@@ -1,0 +1,3 @@
+# Herramientas de desarrollo (no se instalan en Vercel)
+pytest>=8.0
+ruff>=0.6

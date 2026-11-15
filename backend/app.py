@@ -1,126 +1,266 @@
-import os
-import sqlite3
-from datetime import datetime
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel
-from typing import Optional, List
-import json
+import calendar
 import csv
 import io
+import os
+from contextlib import asynccontextmanager
+from datetime import date, datetime
+from typing import Literal
 
-from database import get_db_connection, init_db
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, field_validator
 
-app = FastAPI(title="ExpenseFlow FinTech API", version="2.0.0")
+try:
+    from auth import current_user
+    from auth import router as auth_router
+    from database import EXPENSE_CATEGORIES, INCOME_CATEGORIES, IS_POSTGRES, get_db, init_db
+except ImportError:  # al ejecutar como "uvicorn backend.app:app" desde la raíz
+    from backend.auth import current_user
+    from backend.auth import router as auth_router
+    from backend.database import EXPENSE_CATEGORIES, INCOME_CATEGORIES, IS_POSTGRES, get_db, init_db
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    init_db()
+    yield
+
+
+app = FastAPI(title="ExpenseFlow FinTech API", version="3.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Orígenes permitidos: variable ALLOWED_ORIGINS separada por comas (p. ej. el dominio de Vercel)
+    allow_origins=[o.strip() for o in os.environ.get(
+        "ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
+    ).split(",") if o.strip()],
+    allow_credentials=True,  # necesario para la cookie de sesión si el frontend se sirve desde otro origen permitido
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
-@app.on_event("startup")
-def startup_db():
-    init_db()
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+app.include_router(auth_router)
 
 # --- MODELOS PYDANTIC ---
+MAX_AMOUNT = 1_000_000_000
+MAX_IMPORT = 1000
+
+
 class TransactionCreate(BaseModel):
-    title: str
-    amount: float
-    type: str # 'expense' or 'income'
-    category: str
-    date: str
-    payment_method: Optional[str] = "Tarjeta"
-    notes: Optional[str] = ""
+    title: str = Field(min_length=1, max_length=120)
+    amount: float = Field(gt=0, le=MAX_AMOUNT)
+    type: Literal["expense", "income"]
+    category: str = Field(min_length=1, max_length=60)
+    date: date
+    payment_method: str | None = Field(default="Tarjeta", max_length=40)
+    notes: str | None = Field(default="", max_length=500)
+
+    @field_validator("title", "category")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("no puede estar vacío")
+        return v
+
 
 class SubscriptionCreate(BaseModel):
-    name: str
-    cost: float
-    billing_cycle: str # 'monthly' or 'yearly'
-    category: str
-    next_billing_date: str
-    icon: Optional[str] = "credit-card"
+    name: str = Field(min_length=1, max_length=80)
+    cost: float = Field(gt=0, le=MAX_AMOUNT)
+    billing_cycle: Literal["monthly", "yearly"]
+    category: str = Field(min_length=1, max_length=60)
+    next_billing_date: date
+    icon: str | None = Field(default="credit-card", max_length=40)
+
 
 class BudgetUpdate(BaseModel):
-    category: str
-    monthly_limit: float
+    category: str = Field(min_length=1, max_length=60)
+    monthly_limit: float = Field(gt=0, le=MAX_AMOUNT)
+
 
 class SavingsGoalCreate(BaseModel):
-    title: str
-    target_amount: float
-    current_amount: Optional[float] = 0.0
-    target_date: str
-    category: Optional[str] = "General"
-    icon: Optional[str] = "piggy-bank"
+    title: str = Field(min_length=1, max_length=80)
+    target_amount: float = Field(gt=0, le=MAX_AMOUNT)
+    current_amount: float | None = Field(default=0.0, ge=0, le=MAX_AMOUNT)
+    target_date: date
+    category: str | None = Field(default="General", max_length=60)
+    icon: str | None = Field(default="piggy-bank", max_length=40)
+
+
+class SavingsGoalUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+    target_amount: float = Field(gt=0, le=MAX_AMOUNT)
+    target_date: date
+    category: str | None = Field(default="General", max_length=60)
+
+
+class CsvImport(BaseModel):
+    csv: str = Field(min_length=1, max_length=2_000_000)
+
 
 class SavingsGoalDeposit(BaseModel):
-    amount: float
+    amount: float = Field(gt=0, le=MAX_AMOUNT)
+
 
 class BulkImportJSON(BaseModel):
-    transactions: Optional[List[TransactionCreate]] = []
+    transactions: list[TransactionCreate] = Field(default_factory=list, max_length=MAX_IMPORT)
 
-# --- ENDPOINTS REST API ---
 
+User = Depends(current_user)
+
+TX_INSERT = ("INSERT INTO transactions (user_id, title, amount, type, category, date, payment_method, notes) "
+             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+
+
+def tx_params(uid, tx: TransactionCreate):
+    return (uid, tx.title, tx.amount, tx.type, tx.category, tx.date.isoformat(), tx.payment_method, tx.notes)
+
+
+def resolve_month(month: str | None) -> str:
+    """Devuelve 'YYYY-MM'; por defecto el mes actual."""
+    if not month:
+        return datetime.now().strftime("%Y-%m")
+    # strptime acepta "2026-1", pero las fechas se guardan como "2026-01-05": se exige el formato exacto
+    try:
+        if len(month) != 7 or month[4] != "-":
+            raise ValueError
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="month debe tener formato YYYY-MM")
+    return month
+
+
+def add_cycle(d: date, cycle: str) -> date:
+    """Suma un mes o un año; si el día no existe (31 de febrero) usa el último día del mes."""
+    months = 1 if cycle == "monthly" else 12
+    month_index = d.month - 1 + months
+    year, month = d.year + month_index // 12, month_index % 12 + 1
+    return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
+
+
+MAX_CATCH_UP = 24  # cobros pendientes que se generan como máximo por suscripción
+
+
+def process_due_subscriptions(db, uid: int) -> int:
+    """Registra como gasto cada cobro de suscripción activa ya vencido y avanza su próxima fecha.
+
+    Se llama al leer el resumen, los movimientos, los presupuestos o las suscripciones, así no
+    hace falta un proceso programado (en Vercel no lo hay). Devuelve cuántos cobros generó.
+    """
+    today = date.today()
+    created = 0
+    subs = db.fetchall(
+        "SELECT id, name, cost, billing_cycle, category, next_billing_date FROM subscriptions "
+        "WHERE user_id = ? AND is_active = 1 AND next_billing_date <= ?", (uid, today.isoformat()))
+    for sub in subs:
+        due = date.fromisoformat(sub["next_billing_date"])
+        steps = 0
+        while due <= today and steps < MAX_CATCH_UP:
+            db.execute(TX_INSERT, (uid, sub["name"], sub["cost"], "expense", sub["category"], due.isoformat(),
+                                   "Cobro automático", "Cargo mensual" if sub["billing_cycle"] == "monthly" else "Cargo anual"))
+            due = add_cycle(due, sub["billing_cycle"])
+            steps += 1
+            created += 1
+        if due <= today:  # demasiados cobros atrasados: se salta al siguiente futuro
+            while due <= today:
+                due = add_cycle(due, sub["billing_cycle"])
+        db.execute("UPDATE subscriptions SET next_billing_date = ? WHERE id = ? AND user_id = ?",
+                   (due.isoformat(), sub["id"], uid))
+    return created
+
+
+def update_owned(db, table: str, item_id: int, uid: int, fields: dict, not_found: str):
+    cols = ", ".join(f"{k} = ?" for k in fields)
+    cur = db.execute(f"UPDATE {table} SET {cols} WHERE id = ? AND user_id = ?", (*fields.values(), item_id, uid))
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail=not_found)
+
+
+def delete_owned(table: str, item_id: int, uid: int, not_found: str):
+    with get_db() as db:
+        cur = db.execute(f"DELETE FROM {table} WHERE id = ? AND user_id = ?", (item_id, uid))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail=not_found)
+
+
+# --- ENDPOINTS PÚBLICOS ---
 @app.get("/api/health")
 def health_check():
-    return {"status": "online", "system": "ExpenseFlow FinTech Engine v2.0", "timestamp": datetime.now().isoformat()}
+    return {
+        "status": "online",
+        "system": "ExpenseFlow FinTech Engine v3.0",
+        "database": "postgresql" if IS_POSTGRES else "sqlite",
+        "timestamp": datetime.now().isoformat(),
+    }
 
+
+@app.get("/api/categories")
+def get_categories():
+    return {"expense": EXPENSE_CATEGORIES, "income": INCOME_CATEGORIES}
+
+
+# --- RESUMEN ---
 @app.get("/api/summary")
-def get_summary():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def get_summary(month: str | None = None, user: dict = User):
+    month = resolve_month(month)
+    uid = user["id"]
+    with get_db() as db:
+        process_due_subscriptions(db, uid)
+        rows = db.fetchall(
+            "SELECT type, SUM(amount) AS total FROM transactions "
+            "WHERE user_id = ? AND substr(date, 1, 7) = ? GROUP BY type", (uid, month))
+        type_totals = {r["type"]: r["total"] or 0.0 for r in rows}
+        total_income = type_totals.get("income", 0.0)
+        total_expense = type_totals.get("expense", 0.0)
+        net_balance = total_income - total_expense
 
-    # Ingresos vs Gastos
-    cursor.execute("SELECT type, SUM(amount) as total FROM transactions GROUP BY type")
-    type_totals = {row['type']: row['total'] for row in cursor.fetchall()}
-    total_income = type_totals.get('income', 0.0)
-    total_expense = type_totals.get('expense', 0.0)
-    net_balance = total_income - total_expense
+        subs = db.fetchall("SELECT cost, billing_cycle FROM subscriptions WHERE user_id = ? AND is_active = 1", (uid,))
+        monthly_subs_cost = sum(s["cost"] if s["billing_cycle"] == "monthly" else s["cost"] / 12.0 for s in subs)
 
-    # Suscripciones activas costo mensual equivalente
-    cursor.execute("SELECT cost, billing_cycle FROM subscriptions WHERE is_active = 1")
-    subs = cursor.fetchall()
-    monthly_subs_cost = 0.0
-    for s in subs:
-        if s['billing_cycle'] == 'monthly':
-            monthly_subs_cost += s['cost']
-        elif s['billing_cycle'] == 'yearly':
-            monthly_subs_cost += (s['cost'] / 12.0)
+        expenses_by_category = [
+            {"category": r["category"], "total": round(r["category_total"], 2)}
+            for r in db.fetchall(
+                "SELECT category, SUM(amount) AS category_total FROM transactions "
+                "WHERE user_id = ? AND type = 'expense' AND substr(date, 1, 7) = ? "
+                "GROUP BY category ORDER BY category_total DESC", (uid, month))
+        ]
 
-    # Gastos por Categoría
-    cursor.execute("""
-        SELECT category, SUM(amount) as category_total 
-        FROM transactions 
-        WHERE type = 'expense' 
-        GROUP BY category 
-        ORDER BY category_total DESC
-    """)
-    expenses_by_category = [{"category": row['category'], "total": round(row['category_total'], 2)} for row in cursor.fetchall()]
+        daily_trends = [
+            {"date": r["date"], "total": round(r["day_total"], 2)}
+            for r in db.fetchall(
+                "SELECT date, SUM(amount) AS day_total FROM transactions "
+                "WHERE user_id = ? AND type = 'expense' AND substr(date, 1, 7) = ? "
+                "GROUP BY date ORDER BY date ASC", (uid, month))
+        ]
 
-    # Tendencia de últimos días
-    cursor.execute("""
-        SELECT date, SUM(amount) as day_total
-        FROM transactions
-        WHERE type = 'expense'
-        GROUP BY date
-        ORDER BY date ASC
-        LIMIT 30
-    """)
-    daily_trends = [{"date": row['date'], "total": round(row['day_total'], 2)} for row in cursor.fetchall()]
-
-    # Total Ahorrado en Metas
-    cursor.execute("SELECT SUM(current_amount) as total_saved FROM savings_goals")
-    saved_row = cursor.fetchone()
-    total_saved = saved_row['total_saved'] if saved_row and saved_row['total_saved'] else 0.0
+        saved = db.fetchone("SELECT SUM(current_amount) AS total_saved FROM savings_goals WHERE user_id = ?", (uid,))
+        total_saved = (saved or {}).get("total_saved") or 0.0
 
     # ALGORITMO DE FINANCIAL HEALTH SCORE (0-100 pts)
-    score = 70.0 # Base
+    score = 70.0
     tips = []
-
     if total_income > 0:
         savings_rate = (net_balance / total_income) * 100
         if savings_rate >= 20:
@@ -148,263 +288,345 @@ def get_summary():
         score -= 25
         tips.append("Atención: Tus gastos superan a tus ingresos en este periodo.")
 
-    health_score = int(max(0, min(100, score)))
-
-    conn.close()
-
     return {
+        "month": month,
         "net_balance": round(net_balance, 2),
         "total_income": round(total_income, 2),
         "total_expense": round(total_expense, 2),
         "monthly_subs_cost": round(monthly_subs_cost, 2),
         "total_saved": round(total_saved, 2),
-        "health_score": health_score,
+        "health_score": int(max(0, min(100, score))),
         "health_tips": tips,
         "expenses_by_category": expenses_by_category,
-        "daily_trends": daily_trends
+        "daily_trends": daily_trends,
     }
+
 
 # --- TRANSACTIONS API ---
 @app.get("/api/transactions")
 def get_transactions(
-    type: Optional[str] = None, 
-    category: Optional[str] = None, 
-    search: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    type: str | None = None,
+    category: str | None = None,
+    search: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    user: dict = User,
 ):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    query = "SELECT * FROM transactions WHERE 1=1"
-    params = []
-
+    where = " WHERE user_id = ?"
+    params = [user["id"]]
     if type:
-        query += " AND type = ?"
+        where += " AND type = ?"
         params.append(type)
     if category:
-        query += " AND category = ?"
+        where += " AND category = ?"
         params.append(category)
     if search:
-        query += " AND (title LIKE ? OR notes LIKE ?)"
-        params.append(f"%{search}%")
-        params.append(f"%{search}%")
+        # LOWER() para que la búsqueda no distinga mayúsculas también en PostgreSQL
+        where += " AND (LOWER(title) LIKE ? OR LOWER(COALESCE(notes, '')) LIKE ?)"
+        params += [f"%{search.lower()}%"] * 2
     if start_date:
-        query += " AND date >= ?"
+        where += " AND date >= ?"
         params.append(start_date)
     if end_date:
-        query += " AND date <= ?"
+        where += " AND date <= ?"
         params.append(end_date)
+    with get_db() as db:
+        process_due_subscriptions(db, user["id"])
+        totals = db.fetchone(
+            "SELECT COUNT(*) AS total, "
+            "COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income_total, "
+            "COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense_total "
+            "FROM transactions" + where, params)
+        items = db.fetchall(
+            "SELECT * FROM transactions" + where + " ORDER BY date DESC, id DESC LIMIT ? OFFSET ?",
+            [*params, page_size, (page - 1) * page_size])
+    return {
+        "items": items,
+        "total": totals["total"],
+        "page": page,
+        "page_size": page_size,
+        "income_total": round(totals["income_total"], 2),
+        "expense_total": round(totals["expense_total"], 2),
+    }
 
-    query += " ORDER BY date DESC, id DESC"
-    cursor.execute(query, params)
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
 
 @app.post("/api/transactions", status_code=201)
-def create_transaction(tx: TransactionCreate):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO transactions (title, amount, type, category, date, payment_method, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (tx.title, tx.amount, tx.type, tx.category, tx.date, tx.payment_method, tx.notes)
-    )
-    tx_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+def create_transaction(tx: TransactionCreate, user: dict = User):
+    with get_db() as db:
+        tx_id = db.insert(TX_INSERT, tx_params(user["id"], tx))
     return {"id": tx_id, "message": "Transacción registrada exitosamente"}
 
+
+@app.put("/api/transactions/{tx_id}")
+def update_transaction(tx_id: int, tx: TransactionCreate, user: dict = User):
+    with get_db() as db:
+        update_owned(db, "transactions", tx_id, user["id"], {
+            "title": tx.title, "amount": tx.amount, "type": tx.type, "category": tx.category,
+            "date": tx.date.isoformat(), "payment_method": tx.payment_method, "notes": tx.notes,
+        }, "Transacción no encontrada")
+    return {"id": tx_id, "message": "Transacción actualizada"}
+
+
 @app.delete("/api/transactions/{tx_id}")
-def delete_transaction(tx_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM transactions WHERE id = ?", (tx_id,))
-    conn.commit()
-    conn.close()
+def delete_transaction(tx_id: int, user: dict = User):
+    delete_owned("transactions", tx_id, user["id"], "Transacción no encontrada")
     return {"message": f"Transacción #{tx_id} eliminada"}
+
 
 # --- SAVINGS GOALS API ---
 @app.get("/api/savings_goals")
-def get_savings_goals():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM savings_goals ORDER BY target_date ASC")
-    goals = [dict(g) for g in cursor.fetchall()]
+def get_savings_goals(user: dict = User):
+    with get_db() as db:
+        goals = db.fetchall("SELECT * FROM savings_goals WHERE user_id = ? ORDER BY target_date ASC", (user["id"],))
     for g in goals:
-        g['percentage'] = min(round((g['current_amount'] / g['target_amount']) * 100, 1), 100.0) if g['target_amount'] > 0 else 0
-    conn.close()
+        g["percentage"] = min(round((g["current_amount"] / g["target_amount"]) * 100, 1), 100.0) if g["target_amount"] > 0 else 0
     return goals
 
+
 @app.post("/api/savings_goals", status_code=201)
-def create_savings_goal(goal: SavingsGoalCreate):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO savings_goals (title, target_amount, current_amount, target_date, category, icon)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (goal.title, goal.target_amount, goal.current_amount, goal.target_date, goal.category, goal.icon)
-    )
-    goal_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+def create_savings_goal(goal: SavingsGoalCreate, user: dict = User):
+    with get_db() as db:
+        goal_id = db.insert(
+            "INSERT INTO savings_goals (user_id, title, target_amount, current_amount, target_date, category, icon) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user["id"], goal.title, goal.target_amount, goal.current_amount,
+             goal.target_date.isoformat(), goal.category, goal.icon),
+        )
     return {"id": goal_id, "message": "Meta de ahorro creada"}
 
+
+@app.put("/api/savings_goals/{goal_id}")
+def update_savings_goal(goal_id: int, goal: SavingsGoalUpdate, user: dict = User):
+    with get_db() as db:
+        update_owned(db, "savings_goals", goal_id, user["id"], {
+            "title": goal.title, "target_amount": goal.target_amount,
+            "target_date": goal.target_date.isoformat(), "category": goal.category,
+        }, "Meta no encontrada")
+    return {"id": goal_id, "message": "Meta actualizada"}
+
+
 @app.put("/api/savings_goals/{goal_id}/deposit")
-def deposit_to_goal(goal_id: int, deposit: SavingsGoalDeposit):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT current_amount, target_amount, title FROM savings_goals WHERE id = ?", (goal_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Meta no encontrada")
+def deposit_to_goal(goal_id: int, deposit: SavingsGoalDeposit, user: dict = User):
+    uid = user["id"]
+    with get_db() as db:
+        row = db.fetchone(
+            "SELECT current_amount, target_amount, title FROM savings_goals WHERE id = ? AND user_id = ?",
+            (goal_id, uid))
+        if not row:
+            raise HTTPException(status_code=404, detail="Meta no encontrada")
 
-    new_amount = row['current_amount'] + deposit.amount
-    cursor.execute("UPDATE savings_goals SET current_amount = ? WHERE id = ?", (new_amount, goal_id))
+        remaining = row["target_amount"] - row["current_amount"]
+        if deposit.amount > remaining + 1e-9:
+            raise HTTPException(status_code=422,
+                                detail=f"El depósito supera lo que falta para la meta ({round(max(remaining, 0), 2)})")
+        new_amount = row["current_amount"] + deposit.amount
+        db.execute("UPDATE savings_goals SET current_amount = ? WHERE id = ? AND user_id = ?", (new_amount, goal_id, uid))
 
-    # Opcional: registrar como gasto de ahorro
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    cursor.execute(
-        """INSERT INTO transactions (title, amount, type, category, date, payment_method, notes)
-           VALUES (?, ?, 'expense', 'Ahorro e Inversión', ?, 'Transferencia', ?)""",
-        (f"Ahorro: {row['title']}", deposit.amount, today_str, f"Depósito a meta de ahorro #{goal_id}")
-    )
-
-    conn.commit()
-    conn.close()
+        # Registrar el movimiento de ahorro en el historial
+        db.execute(
+            TX_INSERT,
+            (uid, f"Ahorro: {row['title']}", deposit.amount, "expense", "Ahorro e Inversión",
+             datetime.now().strftime("%Y-%m-%d"), "Transferencia", f"Depósito a meta de ahorro #{goal_id}"),
+        )
     return {"id": goal_id, "current_amount": round(new_amount, 2)}
 
+
 @app.delete("/api/savings_goals/{goal_id}")
-def delete_savings_goal(goal_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM savings_goals WHERE id = ?", (goal_id,))
-    conn.commit()
-    conn.close()
+def delete_savings_goal(goal_id: int, user: dict = User):
+    delete_owned("savings_goals", goal_id, user["id"], "Meta no encontrada")
     return {"message": "Meta eliminada"}
+
 
 # --- SUBSCRIPTIONS API ---
 @app.get("/api/subscriptions")
-def get_subscriptions():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM subscriptions ORDER BY next_billing_date ASC")
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
+def get_subscriptions(user: dict = User):
+    with get_db() as db:
+        process_due_subscriptions(db, user["id"])
+        return db.fetchall("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY next_billing_date ASC", (user["id"],))
+
 
 @app.post("/api/subscriptions", status_code=201)
-def create_subscription(sub: SubscriptionCreate):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO subscriptions (name, cost, billing_cycle, category, next_billing_date, icon)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (sub.name, sub.cost, sub.billing_cycle, sub.category, sub.next_billing_date, sub.icon)
-    )
-    sub_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+def create_subscription(sub: SubscriptionCreate, user: dict = User):
+    with get_db() as db:
+        sub_id = db.insert(
+            "INSERT INTO subscriptions (user_id, name, cost, billing_cycle, category, next_billing_date, icon) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user["id"], sub.name, sub.cost, sub.billing_cycle, sub.category,
+             sub.next_billing_date.isoformat(), sub.icon),
+        )
     return {"id": sub_id, "message": "Suscripción añadida exitosamente"}
 
+
+@app.put("/api/subscriptions/{sub_id}")
+def update_subscription(sub_id: int, sub: SubscriptionCreate, user: dict = User):
+    with get_db() as db:
+        update_owned(db, "subscriptions", sub_id, user["id"], {
+            "name": sub.name, "cost": sub.cost, "billing_cycle": sub.billing_cycle,
+            "category": sub.category, "next_billing_date": sub.next_billing_date.isoformat(),
+        }, "Suscripción no encontrada")
+    return {"id": sub_id, "message": "Suscripción actualizada"}
+
+
 @app.put("/api/subscriptions/{sub_id}/toggle")
-def toggle_subscription(sub_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT is_active FROM subscriptions WHERE id = ?", (sub_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Suscripción no encontrada")
-    
-    new_state = 0 if row['is_active'] == 1 else 1
-    cursor.execute("UPDATE subscriptions SET is_active = ? WHERE id = ?", (new_state, sub_id))
-    conn.commit()
-    conn.close()
+def toggle_subscription(sub_id: int, user: dict = User):
+    with get_db() as db:
+        row = db.fetchone("SELECT is_active FROM subscriptions WHERE id = ? AND user_id = ?", (sub_id, user["id"]))
+        if not row:
+            raise HTTPException(status_code=404, detail="Suscripción no encontrada")
+        new_state = 0 if row["is_active"] == 1 else 1
+        db.execute("UPDATE subscriptions SET is_active = ? WHERE id = ? AND user_id = ?", (new_state, sub_id, user["id"]))
     return {"id": sub_id, "is_active": new_state}
 
+
 @app.delete("/api/subscriptions/{sub_id}")
-def delete_subscription(sub_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
-    conn.commit()
-    conn.close()
+def delete_subscription(sub_id: int, user: dict = User):
+    delete_owned("subscriptions", sub_id, user["id"], "Suscripción no encontrada")
     return {"message": "Suscripción eliminada"}
+
 
 # --- BUDGETS API ---
 @app.get("/api/budgets")
-def get_budgets():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM budgets")
-    budgets = [dict(b) for b in cursor.fetchall()]
-
+def get_budgets(month: str | None = None, user: dict = User):
+    month = resolve_month(month)
+    with get_db() as db:
+        process_due_subscriptions(db, user["id"])
+        # Una sola consulta: presupuesto + gasto del mes en esa categoría
+        budgets = db.fetchall(
+            """SELECT b.id, b.category, b.monthly_limit, b.period,
+                      COALESCE(SUM(t.amount), 0) AS spent
+               FROM budgets b
+               LEFT JOIN transactions t
+                 ON t.user_id = b.user_id AND t.category = b.category
+                AND t.type = 'expense' AND substr(t.date, 1, 7) = ?
+               WHERE b.user_id = ?
+               GROUP BY b.id, b.category, b.monthly_limit, b.period
+               ORDER BY b.id""",
+            (month, user["id"]))
     for b in budgets:
-        cursor.execute(
-            """SELECT SUM(amount) as spent 
-               FROM transactions 
-               WHERE type = 'expense' AND category = ?""", 
-            (b['category'],)
-        )
-        spent_row = cursor.fetchone()
-        spent = spent_row['spent'] if spent_row and spent_row['spent'] else 0.0
-        b['spent'] = round(spent, 2)
-        b['percentage'] = min(round((spent / b['monthly_limit']) * 100, 1), 100.0) if b['monthly_limit'] > 0 else 0
-
-    conn.close()
+        b["spent"] = round(b["spent"], 2)
+        b["percentage"] = min(round((b["spent"] / b["monthly_limit"]) * 100, 1), 100.0) if b["monthly_limit"] > 0 else 0
     return budgets
 
+
 @app.post("/api/budgets")
-def set_budget(b: BudgetUpdate):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO budgets (category, monthly_limit) VALUES (?, ?)
-        ON CONFLICT(category) DO UPDATE SET monthly_limit = excluded.monthly_limit
-    """, (b.category, b.monthly_limit))
-    conn.commit()
-    conn.close()
+def set_budget(b: BudgetUpdate, user: dict = User):
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO budgets (user_id, category, monthly_limit) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, category) DO UPDATE SET monthly_limit = excluded.monthly_limit",
+            (user["id"], b.category, b.monthly_limit))
     return {"message": "Presupuesto actualizado"}
+
 
 # --- IMPORT JSON API ---
 @app.post("/api/import/json")
-def import_json(data: BulkImportJSON):
+def import_json(data: BulkImportJSON, user: dict = User):
     if not data.transactions:
         raise HTTPException(status_code=400, detail="No se enviaron transacciones para importar")
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    count = 0
-    for tx in data.transactions:
-        cursor.execute(
-            """INSERT INTO transactions (title, amount, type, category, date, payment_method, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (tx.title, tx.amount, tx.type, tx.category, tx.date, tx.payment_method, tx.notes)
-        )
-        count += 1
-    conn.commit()
-    conn.close()
+    with get_db() as db:
+        for tx in data.transactions:
+            db.execute(TX_INSERT, tx_params(user["id"], tx))
+    count = len(data.transactions)
     return {"imported_count": count, "message": f"Se importaron {count} transacciones con éxito"}
 
+
+# --- IMPORT CSV API ---
+CSV_COLUMNS = {
+    "title": ("título", "titulo", "title", "concepto"),
+    "amount": ("monto", "amount", "valor"),
+    "type": ("tipo", "type"),
+    "category": ("categoría", "categoria", "category"),
+    "date": ("fecha", "date"),
+    "payment_method": ("método pago", "metodo pago", "método", "metodo", "payment_method"),
+    "notes": ("notas", "nota", "notes"),
+}
+TYPE_WORDS = {"expense": "expense", "gasto": "expense", "income": "income", "ingreso": "income"}
+
+
+def parse_amount(text: str) -> float:
+    """Acepta 1234.5, 1.234,50 y 900.000 (formato colombiano), 1,234.50 y $ 1.234.
+
+    Un solo punto seguido de exactamente tres dígitos se toma como separador de miles
+    (900.000 = novecientos mil), que es como se escriben los montos en Colombia.
+    """
+    t = text.strip().replace("$", "").replace(" ", "").replace("\u00a0", "")
+    if "," in t and "." in t:
+        t = t.replace(".", "").replace(",", ".") if t.rfind(",") > t.rfind(".") else t.replace(",", "")
+    elif "," in t:
+        t = t.replace(",", ".")
+    elif t.count(".") > 1 or (t.count(".") == 1 and len(t.split(".")[1]) == 3):
+        t = t.replace(".", "")
+    return float(t)
+
+
+@app.post("/api/import/csv")
+def import_csv(data: CsvImport, user: dict = User):
+    """Importa el mismo CSV que genera la exportación (o uno con columnas equivalentes, separadas por , o ;)."""
+    text = data.csv.lstrip("\ufeff")
+    try:
+        dialect = csv.Sniffer().sniff(text.splitlines()[0], delimiters=",;")
+    except csv.Error:
+        dialect = csv.excel
+    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    headers = {(h or "").strip().lower(): h for h in (reader.fieldnames or [])}
+    mapping = {}
+    for field, names in CSV_COLUMNS.items():
+        for n in names:
+            if n in headers:
+                mapping[field] = headers[n]
+                break
+    missing = [f for f in ("title", "amount", "type", "category", "date") if f not in mapping]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Faltan columnas en el CSV: {', '.join(missing)}")
+
+    txs, errors = [], []
+    for line, row in enumerate(reader, start=2):
+        if len(txs) + len(errors) >= MAX_IMPORT:
+            raise HTTPException(status_code=422, detail=f"El CSV tiene más de {MAX_IMPORT} filas")
+        try:
+            raw = {f: (row.get(col) or "").strip() for f, col in mapping.items()}
+            raw["title"] = raw["title"].lstrip("'")  # deshace la protección contra fórmulas de la exportación
+            raw["type"] = TYPE_WORDS[raw["type"].lower()]
+            raw["amount"] = parse_amount(raw["amount"])
+            txs.append(TransactionCreate(**raw))
+        except Exception:
+            errors.append(line)
+    if errors:
+        shown = ", ".join(map(str, errors[:10])) + ("…" if len(errors) > 10 else "")
+        raise HTTPException(status_code=422, detail=f"No se pudo leer {len(errors)} fila(s): {shown}. No se importó nada.")
+    if not txs:
+        raise HTTPException(status_code=400, detail="El CSV no tiene filas")
+    with get_db() as db:
+        for tx in txs:
+            db.execute(TX_INSERT, tx_params(user["id"], tx))
+    return {"imported_count": len(txs), "message": f"Se importaron {len(txs)} transacciones con éxito"}
+
+
 # --- EXPORT API ---
+def csv_safe(value):
+    """Evita inyección de fórmulas en Excel/Sheets (celdas que empiezan con = + - @ tab o CR)."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", chr(9), chr(13)):
+        return "'" + value
+    return value
+
+
 @app.get("/api/export/csv")
-def export_csv():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM transactions ORDER BY date DESC")
-    rows = cursor.fetchall()
-    conn.close()
+def export_csv(user: dict = User):
+    with get_db() as db:
+        rows = db.fetchall("SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC", (user["id"],))
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["ID", "Título", "Monto", "Tipo", "Categoría", "Fecha", "Método Pago", "Notas"])
     for r in rows:
-        writer.writerow([r['id'], r['title'], r['amount'], r['type'], r['category'], r['date'], r['payment_method'], r['notes']])
+        writer.writerow([r["id"], csv_safe(r["title"]), r["amount"], r["type"], csv_safe(r["category"]),
+                         r["date"], csv_safe(r["payment_method"]), csv_safe(r["notes"])])
 
-    return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=expenseflow_transactions.csv"})
+    return Response(content=output.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=expenseflow_transactions.csv"})
+
 
 # --- SERVIR FRONTEND ESTÁTICO ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
@@ -422,6 +644,5 @@ if os.path.exists(FRONTEND_DIR):
 
 if __name__ == "__main__":
     import uvicorn
-    init_db()
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
